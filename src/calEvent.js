@@ -31,7 +31,7 @@ export default (user, apiUrl) => ({
   },
 
   getPriceStr(start, end) {
-    return pricing.calculate(start, end);
+    return pricing.getCostAndNightsString(start, end);
   },
 
   deleteEvent() {
@@ -55,6 +55,10 @@ export default (user, apiUrl) => ({
 
   addEvent() {
     this.isLoading = true;
+
+    // event.end is exclusive, so we need to add one day
+    this.event.end = addDays(this.event.endIncl, 1);
+
     const newEvent = {
       title: this.event.title,
       start: this.event.start,
@@ -89,6 +93,10 @@ export default (user, apiUrl) => ({
 
   updateEvent() {
     this.isLoading = true;
+
+    // event.end is exclusive, so we need to add one day
+    this.event.end = addDays(this.event.endIncl, 1);
+
     const updatedEvent = {
       id: this.event.id,
       title: this.event.title,
@@ -134,4 +142,12 @@ async function api(url, method = "get", body) {
     throw { status: response.status, data: data };
   }
   return data;
+}
+
+// add days to date with Date object; dateStr must be in format YYYY-MM-DD
+// return string in format YYYY-MM-DD
+function addDays(dateStr, days) {
+  const result = new Date(dateStr);
+  result.setDate(result.getDate() + days);
+  return result.toISOString().split("T")[0];
 }

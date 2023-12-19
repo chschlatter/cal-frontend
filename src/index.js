@@ -11,6 +11,8 @@ window.App.apiUrl = "/api";
 
 // redirect to login page if not authenticated
 // set window.App.user
+// warmup api
+// call init()
 fetch(`${window.App.apiUrl}/auth`)
   .then((response) => {
     if (!response.ok) {
@@ -31,14 +33,15 @@ fetch(`${window.App.apiUrl}/auth`)
     ]);
     warmupPromise
       .then((responses) => {
-        console.log("warmup: " + JSON.stringify(responses));
+        console.log("API warmup completed");
       })
       .catch((error) => {
         console.log("warmup: " + error.message);
       });
 
-    $("#username").text(window.App.user.name);
-    $("html").css("visibility", "visible");
+    document.getElementById("username").textContent = window.App.user.name;
+    // set css visibility to visible to avoid flickering
+    document.querySelector("html").style.visibility = "visible";
 
     docReady(init);
   })
@@ -54,7 +57,6 @@ fetch(`${window.App.apiUrl}/auth`)
 
 function init() {
   Alpine.start();
-  // eventModal = new EventModal(document.getElementById("event-modal"));
   window.App.eventModal = new Modal(document.getElementById("event-modal"));
 
   window.App.calendar = getCalendar(

@@ -12,7 +12,10 @@ export class Pricing {
         if (!response.ok) {
           throw new Error(response.status + ": " + data.message);
         }
-        this.priceData = data;
+        // priceData = data sorted by start date, newest first
+        this.priceData = data.sort(
+          (a, b) => new Date(b.from) - new Date(a.from)
+        );
         console.log("Pricing.init(): " + JSON.stringify(data));
       })
       .catch((error) => {
@@ -20,53 +23,75 @@ export class Pricing {
       });
   }
 
-  #nearestPrice(date) {
-    return this.priceData.reduce((x, datePrice) => {
-      const distance = new Date(date) - new Date(datePrice.from);
-      if (distance >= 0 && (!x.distance || distance < x.distance)) {
-        return { distance, price: datePrice.price, tariff: datePrice.tariff };
+  calculateCostAndNights(startDateStr, endDateStr) {
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+
+    if (startDate > endDate) {
+      throw new Error("Keine Kostenberechnung möglich");
+    }
+
+    const result = {};
+    let endDateToCalulate = endDate;
+    for (const price of this.priceData) {
+      const priceFromDate = new Date(price.from);
+      if (priceFromDate < endDateToCalulate) {
+        // calculate cost and nights for this price until endDateToCalulate
+        let nights = 0;
+        if (priceFromDate < startDate) {
+          nights = (endDateToCalulate - startDate) / (1000 * 60 * 60 * 24);
+        } else {
+          nights = (endDateToCalulate - priceFromDate) / (1000 * 60 * 60 * 24);
+        }
+        const cost = nights * price.price;
+
+        // update result
+        if (!result[price.tariff]) {
+          result[price.tariff] = { cost, nights };
+        } else {
+          result[price.tariff].cost += cost;
+          result[price.tariff].nights += nights;
+        }
+
+        endDateToCalulate = priceFromDate;
+        if (endDateToCalulate <= startDate) {
+          break;
+        }
       }
-      return x;
-    }, {});
+    }
+
+    if (endDateToCalulate > startDate) {
+      throw new Error("Keine Kostenberechnung möglich");
+    }
+
+    return result;
   }
 
-  calculate(start, end) {
-    if (!this.priceData) {
-      return -1;
+  getCostAndNightsString(startDateStr, endDateStr) {
+    try {
+      const result = this.calculateCostAndNights(startDateStr, endDateStr);
+
+      // calculate total cost and nights
+      let totalCost = 0;
+      let tariffStrings = [];
+      for (const tariff in result) {
+        totalCost += result[tariff].cost;
+        // add tariff string to beginning of array
+        if (result[tariff].nights == 1) {
+          tariffStrings.unshift("1 Nacht " + tariff);
+        } else if (result[tariff].nights > 1) {
+          tariffStrings.unshift(result[tariff].nights + " Nächte " + tariff);
+        }
+      }
+
+      // create result string
+      if (totalCost == 0) {
+        return "kostenlos";
+      } else {
+        return totalCost + " CHF (" + tariffStrings.join(", ") + ")";
+      }
+    } catch (error) {
+      return error.message;
     }
-
-    // create array of dates between start and end (exclusive)
-    const dates = [];
-    let d = new Date(start);
-    while (d <= new Date(end)) {
-      dates.push(new Date(d));
-      d.setDate(d.getDate() + 1);
-    }
-    dates.pop();
-
-    // calculate price
-    const priceData = dates.reduce(
-      (x, date) => {
-        const datePrice = this.#nearestPrice(date);
-        x.sum += datePrice.price;
-        x.tariffs[datePrice.tariff] = (x.tariffs[datePrice.tariff] || 0) + 1;
-        // console.log("x: " + JSON.stringify(x));
-        return x;
-      },
-      { sum: 0, tariffs: {} }
-    );
-
-    if (priceData.sum == 0) {
-      return "";
-    }
-
-    let priceString = "Preis: " + priceData.sum + " CHF (";
-    Object.entries(priceData.tariffs).forEach(([tariff, count]) => {
-      priceString += count + " x " + tariff + ", ";
-    });
-    priceString = priceString.slice(0, -2);
-    priceString += ")";
-
-    return priceString;
   }
 }

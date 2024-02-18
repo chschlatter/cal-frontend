@@ -9,10 +9,13 @@ window.Alpine = Alpine;
 window.App = {};
 window.App.apiUrl = "/api";
 
-// redirect to login page if not authenticated
-// set window.App.user
-// warmup api
-// call init()
+/*
+ * redirect to login page if not authenticated
+ * if authenticated:
+ *   set window.App.user
+ *   warmup api
+ *   call init()
+ */
 fetch(`${window.App.apiUrl}/auth`)
   .then((response) => {
     if (!response.ok) {
@@ -39,8 +42,6 @@ fetch(`${window.App.apiUrl}/auth`)
         console.log("warmup: " + error.message);
       });
 
-    document.getElementById("username").textContent = window.App.user.name;
-    // set css visibility to visible to avoid flickering
     document.querySelector("html").style.visibility = "visible";
 
     docReady(init);
@@ -91,6 +92,7 @@ function cal_on_select(info) {
 
 function cal_on_eventClick(info) {
   const event = getEventForCalEvent(info.event);
+  console.log(event);
 
   // only admin can edit other users' events
   if (window.App.user.role != "admin" && event.title != window.App.user.name) {

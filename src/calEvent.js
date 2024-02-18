@@ -54,77 +54,106 @@ export default (user, apiUrl) => ({
   },
 
   addEvent() {
-    this.isLoading = true;
+    try {
+      this.isLoading = true;
 
-    // event.end is exclusive, so we need to add one day
-    this.event.end = addDays(this.event.endIncl, 1);
+      // event.end is exclusive, so we need to add one day
+      this.event.end = addDays(this.event.endIncl, 1);
 
-    const newEvent = {
-      title: this.event.title,
-      start: this.event.start,
-      end: this.event.end,
-    };
-    api(`${apiUrl}/events`, "post", newEvent)
-      .then((event) => {
-        this.overlap_start = false;
-        this.overlap_end = false;
-        // second param TRUE selects first event source,
-        // without this, we get duplicated events with refetchEvents()
-        // see https://fullcalendar.io/docs/Calendar-addEvent
-        window.App.calendar.addEvent(event, true);
-        window.App.eventModal.hide();
-      })
-      .catch((error) => {
-        if (error.status == 409) {
-          this.overlap_start = error.data.overlap_start;
-          this.overlap_end = error.data.overlap_end;
-        }
+      const newEvent = {
+        title: this.event.title,
+        start: this.event.start,
+        end: this.event.end,
+      };
 
-        this.errorMessage = error.data.message;
-        console.log(
-          "createEvent(): [" + error.status + "] " + error.data.message
-        );
-        console.log(JSON.stringify(error.data));
-      })
-      .finally(() => {
-        this.isLoading = false;
-      });
+      api(`${apiUrl}/events`, "post", newEvent)
+        .then((event) => {
+          this.overlap_start = false;
+          this.overlap_end = false;
+          // second param TRUE selects first event source,
+          // without this, we get duplicated events with refetchEvents()
+          // see https://fullcalendar.io/docs/Calendar-addEvent
+          window.App.calendar.addEvent(event, true);
+          window.App.eventModal.hide();
+        })
+        .catch((error) => {
+          ({
+            message: this.errorMessage,
+            overlap_start: this.overlap_start,
+            overlap_end: this.overlap_end,
+          } = handleApiError(error, "createEvent"));
+        })
+        .finally(() => {
+          this.isLoading = false;
+        });
+    } catch (error) {
+      this.errorMessage = error.message;
+      this.isLoading = false;
+      return;
+    }
   },
 
   updateEvent() {
-    this.isLoading = true;
+    try {
+      this.isLoading = true;
 
-    // event.end is exclusive, so we need to add one day
-    this.event.end = addDays(this.event.endIncl, 1);
+      // event.end is exclusive, so we need to add one day
+      this.event.end = addDays(this.event.endIncl, 1);
 
-    const updatedEvent = {
-      id: this.event.id,
-      title: this.event.title,
-      start: this.event.start,
-      end: this.event.end,
-    };
-    api(`${apiUrl}/events/${this.event.id}`, "put", updatedEvent)
-      .then((event) => {
-        const calEvent = window.App.calendar.getEventById(event.id);
-        if (!calEvent) {
-          throw new Error("Event not found: " + event.id);
-        }
-        calEvent.setDates(event.start, event.end, { allDay: true });
-        calEvent.setProp("title", event.title);
-        calEvent.setProp("color", event.color);
-        window.App.eventModal.hide();
-      })
-      .catch((error) => {
-        this.errorMessage = error.message;
-        console.log(
-          "updateEvent(): [" + error.status + "] " + error.data.message
-        );
-      })
-      .finally(() => {
-        this.isLoading = false;
-      });
+      const updatedEvent = {
+        id: this.event.id,
+        title: this.event.title,
+        start: this.event.start,
+        end: this.event.end,
+      };
+
+      api(`${apiUrl}/events/${this.event.id}`, "put", updatedEvent)
+        .then((event) => {
+          const calEvent = window.App.calendar.getEventById(event.id);
+          if (!calEvent) {
+            throw new Error("Event not found: " + event.id);
+          }
+          calEvent.setDates(event.start, event.end, { allDay: true });
+          calEvent.setProp("title", event.title);
+          calEvent.setProp("color", event.color);
+          window.App.eventModal.hide();
+        })
+        .catch((error) => {
+          ({
+            message: this.errorMessage,
+            overlap_start: this.overlap_start,
+            overlap_end: this.overlap_end,
+          } = handleApiError(error));
+        })
+        .finally(() => {
+          this.isLoading = false;
+        });
+    } catch (error) {
+      this.errorMessage = error.message;
+      this.isLoading = false;
+      return;
+    }
   },
 });
+
+function handleApiError(error, action = "updateEvent") {
+  const result = {
+    message: error.data.message,
+    overlap_start: false,
+    overlap_end: false,
+  };
+
+  if (error.status == 409) {
+    result.overlap_start = error.data.overlap_start;
+    result.overlap_end = error.data.overlap_end;
+  }
+
+  // log error
+  console.log(`${action}(): [${error.status}] ${result.message}`);
+  console.log(JSON.stringify(error.data));
+
+  return result;
+}
 
 async function api(url, method = "get", body) {
   const fetchOptions = {
@@ -148,6 +177,9 @@ async function api(url, method = "get", body) {
 // return string in format YYYY-MM-DD
 function addDays(dateStr, days) {
   const result = new Date(dateStr);
+  if (isNaN(result)) {
+    throw new Error("Invalid date");
+  }
   result.setDate(result.getDate() + days);
   return result.toISOString().split("T")[0];
 }

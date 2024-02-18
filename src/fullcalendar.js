@@ -47,8 +47,10 @@ export function getCalendar(element, onSelect, onEventClick) {
 }
 
 export function getEventForCalEvent(calEvent, create = false, title = null) {
+  // subtract one day from end date with dayjs
   const endDate = dayjs(calEvent.end);
   let endInclStr = endDate.subtract(1, "day").format("YYYY-MM-DD");
+
   if (create && endDate.diff(calEvent.start, "day") == 1) {
     endInclStr = endDate.add(6, "day").format("YYYY-MM-DD");
   }

@@ -34,20 +34,21 @@
                         </div>
                         <input
                           type="text"
-                          autocomplete="username"
+                          autocomplete="username webauthn"
                           id="username-input"
                           class="form-control"
                           placeholder="Enter username"
                           aria-describedby="username-feedback"
                           name="name"
-                          :class="{ 'is-invalid': $store.username.invalid }"
-                          x-model="$store.username.value"
-                          @input="$store.username.invalid = false"
+                          :class="{ 'is-invalid': credentials.username.invalid }"
+                          x-model="credentials.username.value"
+                          @input="credentials.username.invalid = false"
                           @keyup.enter="login"
+                          x-init="$nextTick(initWebauthn)"
                         />
                         <div
                           class="invalid-feedback"
-                          x-text="$store.username.errorMessage"
+                          x-text="credentials.username.errorMessage"
                         ></div>
                       </div>
                     </div>
@@ -58,15 +59,39 @@
                         id="stayLoggedIn"
                         name="stayLoggedIn"
                         value=""
-                        x-model="stayLoggedIn"
-                        x-bind:disabled="gisNeeded"
+                        x-model="credentials.stayLoggedIn"
+                        x-bind:disabled="passwordNeeded"
                       />
                       <label class="form-check-label" for="stayLoggedIn"
                         >Angemeldet bleiben</label
                       >
                     </div>
 
-                    <div class="col-12" x-show="gisNeeded">
+                    <div class="col-12" x-show="passwordNeeded">
+                      <label>Passwort</label>
+                      <div class="input-group">
+                        <div class="input-group-text">
+                          <i class="bi bi-lock-fill"></i>
+                        </div>
+                        <input
+                          type="password"
+                          class="form-control"
+                          placeholder="Enter password"
+                          aria-describedby="password-feedback"
+                          name="password"
+                          :class="{ 'is-invalid': credentials.password.invalid }"
+                          x-model="credentials.password.value"
+                          @input="credentials.password.invalid = false"
+                          @keyup.enter="login"
+                        />
+                        <div
+                          class="invalid-feedback"
+                          x-text="credentials.password.errorMessage"
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div class="col-12" x-show="passwordNeeded">
                       <div
                         class="g_id_signin"
                         data-type="standard"
@@ -89,6 +114,16 @@
                       </button>
                       <div class="text-danger" x-text="errorMessage"></div>
                     </div>
+                    <div class="col-12">
+                      <button
+                        type="button"
+                        class="btn btn-primary px-4 float-end mt-4"
+                        @click="register"
+                        x-show="tokenNeeded"
+                      >
+                        Passkey Registrieren
+                      </button>
+                    </div>
                   </form>
                 </div>
               </div>
@@ -104,16 +139,6 @@
       </div>
     </div>
 
-    <div
-      id="g_id_onload"
-      data-client_id="526294920927-4mbsla2r4dkrk1t3if5976ss1pnvro2t.apps.googleusercontent.com"
-      data-context="signin"
-      data-ux_mode="popup"
-      data-callback="gsiCallback"
-      data-auto_prompt="false"
-    ></div>
-
-    <script src="https://accounts.google.com/gsi/client" defer></script>
     <script src="login.bundle.js">
       defer
     </script>
